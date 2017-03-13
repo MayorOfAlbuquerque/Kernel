@@ -25,7 +25,7 @@ void setNextProc(ctx_t* ctx, int currentX, int next) {
 }
 
 int getCurrentProcPosition() {
-    for(int i = 0; i < sizeof(pcb)/sizeof(pcb_t); i++) {
+    for(int i = 0; i <= finalElem; i++) {
         if (current == &pcb[i]) {
             return i;
         }
@@ -33,43 +33,54 @@ int getCurrentProcPosition() {
 }
 
 void swapProcessesInPCBTable(int proc1, int proc2) {
-    pcb_t temp = pcb[proc1];
+    uint32_t tempPSpace1 = pcb[proc1].ctx.sp;
+    uint32_t tempPSpace2 = pcb[proc2].ctx.sp;
+    pcb_t temp = pcb[proc2];
     pcb[proc2] = pcb[proc1];
     pcb[proc1] = temp;
+
+    pcb[proc1].pid = proc1+1;
+    pcb[proc2].pid = proc2+1;
+    pcb[proc1].ctx.sp = tempPSpace1;
+    pcb[proc2].ctx.sp = tempPSpace2;
+    if(pcb[proc1].priority < pcb[proc2].priority) {
+        PL011_putc( UART0, 'Z', true );
+    }
     return;
 }
 
 void sortPCBTable() {
-    for(int x = 1; x < finalElem; x++) {
+    for(int x = 1; x <= finalElem; x++) {
         int insertElem = x;
-        while(insertElem > 0 && pcb[insertElem].priority > pcb[insertElem-1].priority) {
-            swapProcessesInPCBTable(insertElem, insertElem-1);
-            insertElem = insertElem -1;
+        while(insertElem > 0 && pcb[insertElem].priority > pcb[(insertElem-1)].priority) {
+            swapProcessesInPCBTable(insertElem-1, insertElem);
+
+            PL011_putc( UART0, 'X', true );
+            insertElem = insertElem-1;
         }
     }
 }
 
 void scheduler(ctx_t* ctx) {
-    int pos = (current->pid)-1;
+    int pos = getCurrentProcPosition();
+    if(pcb[0].priority == 100) {
+        PL011_putc( UART0, 'T', true);
+    }
+    if(pcb[1].priority == 7) {
+        PL011_putc( UART0, 'T', true);
+    }
+    if(pcb[2].priority == 6) {
+        PL011_putc( UART0, 'T', true);
+    }
+    if(pcb[3].priority == 5) {
+        PL011_putc( UART0, 'T', true);
+    }
     if(pos == finalElem) {
         setNextProc(ctx, pos, 0);
     }
     else {
         setNextProc(ctx, pos, pos+1);
     }
-
-/*
-    int pos = (current->pid)-1;
-    int nextPos = pos+1;
-
-    while(nextPos <= finalElem) {
-        if(!pcb[nextPos].deleted) { // if delete = false
-            setNextProc(ctx, pos, nextPos);
-            return;
-        }
-        nextPos = nextPos +1;
-    }
-    setNextProc(ctx, pos, 0);*/
 }
 
 extern void     main_P3();
@@ -90,7 +101,6 @@ void hilevel_handler_rst(ctx_t* ctx) {
    *   mode, with IRQ interrupts enabled, and
    * - the PC and SP values matche the entry point and top of stack.
    */
-
    TIMER0->Timer1Load  = 0x00100000; // select period = 2^20 ticks ~= 1 sec
    TIMER0->Timer1Ctrl  = 0x00000002; // select 32-bit timer
    TIMER0->Timer1Ctrl |= 0x00000040; // select periodic timer
@@ -113,7 +123,6 @@ void hilevel_handler_rst(ctx_t* ctx) {
     /* Once the PCBs are initialised, we (arbitrarily) select one to be
     * restored (i.e., executed) when the function then returns.
     */
-
     current = &pcb[0]; memcpy(ctx, &current->ctx, sizeof(ctx_t));
     int_enable_irq();
 
@@ -123,11 +132,9 @@ void hilevel_handler_rst(ctx_t* ctx) {
 
 void hilevel_handler_irq(ctx_t *ctx) {
   // Step 2: read  the interrupt identifier so we know the source.
-
   uint32_t id = GICC0->IAR;
 
   // Step 4: handle the interrupt, then clear (or reset) the source.
-
   if(id == GIC_SOURCE_TIMER0) {
       scheduler(ctx);
       PL011_putc( UART0, ' ', true );
@@ -135,7 +142,6 @@ void hilevel_handler_irq(ctx_t *ctx) {
   }
 
   // Step 5: write the interrupt identifier to signal we're done.
-
   GICC0->EOIR = id;
 
   return;
@@ -149,7 +155,6 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
    * - perform whatever is appropriate for this system call,
    * - write any return value back to preserved usr mode registers.
    */
-
     switch(id) {
         case 0x00 : { // 0x00 => yield()
             scheduler(ctx);
@@ -181,10 +186,10 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
             pcb[childSlot].ctx.pc = (uint32_t)(&main_console);
             pcb[childSlot].ctx.sp = (uint32_t)(&tos_processSpace) + (1000*(childSlot+1));
             pcb[childSlot].priority = (uint32_t) ctx->gpr[0];
+
             //return value of 0 for child
             ctx->gpr[0] = 0;
             pcb[childSlot].ctx.gpr[0] = childSlot+1;
-
             sortPCBTable();
             break;
         }
