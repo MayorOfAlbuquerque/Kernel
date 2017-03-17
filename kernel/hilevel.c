@@ -9,9 +9,11 @@
  *   can be created, and neither is able to complete.
  */
 
+#define maxNumOfProcs 100
 
 //'current' is address of current process
-pcb_t pcb[100];
+pcb_t pcb[maxNumOfProcs];
+pcb_t *priorityTable[maxNumOfProcs];
 pcb_t *current = NULL;
 int finalElem = 0;
 
@@ -33,19 +35,19 @@ int getCurrentProcPosition() {
 }
 
 void swapProcessesInPCBTable(int proc1, int proc2) {
-    uint32_t tempPSpace1 = pcb[proc1].ctx.sp;
-    uint32_t tempPSpace2 = pcb[proc2].ctx.sp;
+/*
     pcb_t temp = pcb[proc2];
     pcb[proc2] = pcb[proc1];
-    pcb[proc1] = temp;
+    pcb[proc1] = temp;*/
 
+    pcb_t temp;
+    memcpy(&temp, &pcb[proc2], sizeof(pcb_t));
+    //memset(&pcb[proc2], 0, sizeof(pcb_t));
+    memcpy(&pcb[proc2], &pcb[proc1], sizeof(pcb_t));
+    //memset(&pcb[proc1], 0, sizeof(pcb_t));
+    memcpy(&pcb[proc1], &temp, sizeof(pcb_t));
     pcb[proc1].pid = proc1+1;
     pcb[proc2].pid = proc2+1;
-    pcb[proc1].ctx.sp = tempPSpace1;
-    pcb[proc2].ctx.sp = tempPSpace2;
-    if(pcb[proc1].priority < pcb[proc2].priority) {
-        PL011_putc( UART0, 'Z', true );
-    }
     return;
 }
 
@@ -63,18 +65,6 @@ void sortPCBTable() {
 
 void scheduler(ctx_t* ctx) {
     int pos = getCurrentProcPosition();
-    if(pcb[0].priority == 100) {
-        PL011_putc( UART0, 'T', true);
-    }
-    if(pcb[1].priority == 7) {
-        PL011_putc( UART0, 'T', true);
-    }
-    if(pcb[2].priority == 6) {
-        PL011_putc( UART0, 'T', true);
-    }
-    if(pcb[3].priority == 5) {
-        PL011_putc( UART0, 'T', true);
-    }
     if(pos == finalElem) {
         setNextProc(ctx, pos, 0);
     }
@@ -112,18 +102,19 @@ void hilevel_handler_rst(ctx_t* ctx) {
    GICC0->CTLR         = 0x00000001; // enable GIC interface
    GICD0->CTLR         = 0x00000001; // enable GIC distributor
 
-    memset( &pcb[0], 0, sizeof( pcb_t ) );
+    memset(&pcb[0], 0, sizeof(pcb_t));
     pcb[0].pid = 1;
     pcb[0].ctx.cpsr = 0x50;
-    pcb[0].deleted = false;
     pcb[0].priority = 100;
     pcb[0].ctx.pc = (uint32_t)(&main_console);
     pcb[0].ctx.sp = (uint32_t)(&tos_console);
 
+    priorityTable[0] = &pcb[0];
     /* Once the PCBs are initialised, we (arbitrarily) select one to be
     * restored (i.e., executed) when the function then returns.
     */
-    current = &pcb[0]; memcpy(ctx, &current->ctx, sizeof(ctx_t));
+    current = &pcb[0];
+    memcpy(ctx, &current->ctx, sizeof(ctx_t));
     int_enable_irq();
 
     return;
@@ -180,9 +171,8 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
             memset(&pcb[childSlot], 0, sizeof(pcb_t));
             memcpy(&pcb[childSlot], &current->ctx, sizeof(ctx_t));
 
-            pcb[childSlot].pid = childSlot+1;
+            pcb[childSlot].pid = finalElem+1;
             pcb[childSlot].ctx.cpsr = 0x50;
-            pcb[childSlot].deleted = 0;
             pcb[childSlot].ctx.pc = (uint32_t)(&main_console);
             pcb[childSlot].ctx.sp = (uint32_t)(&tos_processSpace) + (1000*(childSlot+1));
             pcb[childSlot].priority = (uint32_t) ctx->gpr[0];
@@ -194,10 +184,9 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
             break;
         }
         case 0x04 : {                   //exit
-            current->deleted = true;
             current->priority = 0;
-            finalElem = finalElem -1;
             sortPCBTable();
+            finalElem = finalElem -1;
             break;
         }
         case 0x05 : {                   //exec

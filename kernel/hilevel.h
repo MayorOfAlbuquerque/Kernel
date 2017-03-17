@@ -37,7 +37,6 @@ typedef struct {
 typedef struct {
   pid_t pid;
   ctx_t ctx;
-  bool deleted;
   int priority;
 } pcb_t;
 
