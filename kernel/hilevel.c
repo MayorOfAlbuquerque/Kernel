@@ -15,62 +15,65 @@
 pcb_t pcb[maxNumOfProcs];
 pcb_t *priorityTable[maxNumOfProcs];
 pcb_t *current = NULL;
-int finalElem = 0;
+int finalElem = 0, timeforProcRemaining = 0;
 
 void setNextProc(ctx_t* ctx, int currentX, int next) {
     if(currentX == next) { // if it's the same, doesn't need a context switch
         return;
     }
-    memcpy(&pcb[currentX].ctx, ctx, sizeof(ctx_t));
-    memcpy(ctx, &pcb[next].ctx, sizeof(ctx_t));
-    current = &pcb[next];
+    memcpy(&priorityTable[currentX]->ctx, ctx, sizeof(ctx_t));
+    memcpy(ctx, &priorityTable[next]->ctx, sizeof(ctx_t));
+    current = priorityTable[next];
+    timeforProcRemaining = current->priority;
+    return;
 }
 
 int getCurrentProcPosition() {
     for(int i = 0; i <= finalElem; i++) {
-        if (current == &pcb[i]) {
+        if (current == priorityTable[i]) {
             return i;
         }
     }
+    return -1;
 }
 
-void swapProcessesInPCBTable(int proc1, int proc2) {
-/*
-    pcb_t temp = pcb[proc2];
-    pcb[proc2] = pcb[proc1];
-    pcb[proc1] = temp;*/
-
-    pcb_t temp;
-    memcpy(&temp, &pcb[proc2], sizeof(pcb_t));
-    //memset(&pcb[proc2], 0, sizeof(pcb_t));
-    memcpy(&pcb[proc2], &pcb[proc1], sizeof(pcb_t));
-    //memset(&pcb[proc1], 0, sizeof(pcb_t));
-    memcpy(&pcb[proc1], &temp, sizeof(pcb_t));
-    pcb[proc1].pid = proc1+1;
-    pcb[proc2].pid = proc2+1;
+void swapProcessesInPriorityTable(int proc1, int proc2) {
+    pcb_t *temp = priorityTable[proc2];
+    priorityTable[proc2] = priorityTable[proc1];
+    priorityTable[proc1] = temp;
     return;
 }
 
-void sortPCBTable() {
+void sortPriorityTable() {
     for(int x = 1; x <= finalElem; x++) {
         int insertElem = x;
-        while(insertElem > 0 && pcb[insertElem].priority > pcb[(insertElem-1)].priority) {
-            swapProcessesInPCBTable(insertElem-1, insertElem);
-
+        while(insertElem > 0 && priorityTable[insertElem]->priority > priorityTable[(insertElem-1)]->priority) {
+            swapProcessesInPriorityTable(insertElem-1, insertElem);
             PL011_putc( UART0, 'X', true );
             insertElem = insertElem-1;
         }
     }
+    return;
 }
 
 void scheduler(ctx_t* ctx) {
+
+    if(timeforProcRemaining > 0) {
+        timeforProcRemaining = timeforProcRemaining-1;
+        return;
+    }
     int pos = getCurrentProcPosition();
+
     if(pos == finalElem) {
+        /*PL011_putc( UART0, ' ', true );
+        PL011_putc( UART0, '>', true );*/
         setNextProc(ctx, pos, 0);
+
     }
     else {
         setNextProc(ctx, pos, pos+1);
     }
+    return;
 }
 
 extern void     main_P3();
@@ -105,15 +108,16 @@ void hilevel_handler_rst(ctx_t* ctx) {
     memset(&pcb[0], 0, sizeof(pcb_t));
     pcb[0].pid = 1;
     pcb[0].ctx.cpsr = 0x50;
-    pcb[0].priority = 100;
+    pcb[0].priority = 4;
     pcb[0].ctx.pc = (uint32_t)(&main_console);
     pcb[0].ctx.sp = (uint32_t)(&tos_console);
-
+    timeforProcRemaining = 1;
     priorityTable[0] = &pcb[0];
     /* Once the PCBs are initialised, we (arbitrarily) select one to be
     * restored (i.e., executed) when the function then returns.
     */
     current = &pcb[0];
+    finalElem = 0;
     memcpy(ctx, &current->ctx, sizeof(ctx_t));
     int_enable_irq();
 
@@ -128,7 +132,7 @@ void hilevel_handler_irq(ctx_t *ctx) {
   // Step 4: handle the interrupt, then clear (or reset) the source.
   if(id == GIC_SOURCE_TIMER0) {
       scheduler(ctx);
-      PL011_putc( UART0, ' ', true );
+      PL011_putc(UART0, ' ', true);
       TIMER0->Timer1IntClr = 0x01;
   }
 
@@ -177,15 +181,16 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
             pcb[childSlot].ctx.sp = (uint32_t)(&tos_processSpace) + (1000*(childSlot+1));
             pcb[childSlot].priority = (uint32_t) ctx->gpr[0];
 
+            priorityTable[finalElem] = &pcb[finalElem];
             //return value of 0 for child
+            sortPriorityTable();
             ctx->gpr[0] = 0;
             pcb[childSlot].ctx.gpr[0] = childSlot+1;
-            sortPCBTable();
             break;
         }
         case 0x04 : {                   //exit
             current->priority = 0;
-            sortPCBTable();
+            sortPriorityTable();
             finalElem = finalElem -1;
             break;
         }
