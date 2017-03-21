@@ -86,11 +86,11 @@ int  read( int fd,       void* x, size_t n ) {
 
 int fork(int x) {
   int r;
-  asm volatile( "svc %1     \n" // make system call SYS_FORK
+  asm volatile( "mov r0, %2 \n"
+                "svc %1     \n" // make system call SYS_FORK
                 "mov %0, r0 \n" // assign r  = r0
-                "mov r0, %1 \n" // assign r0 = x
               : "=r" (r)
-              : "I" (SYS_FORK)
+              : "I" (SYS_FORK), "r" (x)
               : "r0" );
 
   return r;

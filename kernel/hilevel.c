@@ -13,7 +13,6 @@
 
 //'current' is address of current process
 pcb_t pcb[maxNumOfProcs];
-int priorityTable[maxNumOfProcs];
 pcb_t *current = NULL;
 int finalElem = 0, timeforProcRemaining = 0;
 
@@ -22,46 +21,28 @@ void setNextProc(ctx_t* ctx, int currentX, int next) {
         timeforProcRemaining = current->priority;
         return;
     }
+    memcpy(&pcb[currentX].ctx, ctx, sizeof(ctx_t));
+    memcpy(ctx, &pcb[next].ctx, sizeof(ctx_t));
+    current = &pcb[next];
     timeforProcRemaining = current->priority;
-    memcpy(&pcb[priorityTable[currentX]].ctx, ctx, sizeof(ctx_t));
-    memcpy(ctx, &pcb[priorityTable[next]].ctx, sizeof(ctx_t));
-    current = &pcb[priorityTable[next]];
     return;
 }
 
 int getCurrentProcPosition() {
     for(int i = 0; i <= finalElem; i++) {
-        if (current == &pcb[priorityTable[i]]) {
+        if (current == &pcb[i]) {
             return i;
         }
     }
     return -1;
 }
 
-void swapProcessesInPriorityTable(int proc1, int proc2) {
-    int temp = priorityTable[proc2];
-    priorityTable[proc2] = priorityTable[proc1];
-    priorityTable[proc1] = temp;
-    return;
-}
-
-void sortPriorityTable() {
-    for(int x = 1; x <= finalElem; x++) {
-        int insertElem = x;
-        while(insertElem > 0 && pcb[priorityTable[insertElem]].priority > pcb[priorityTable[(insertElem-1)]].priority) {
-            swapProcessesInPriorityTable(insertElem-1, insertElem);
-            PL011_putc( UART0, 'X', true );
-            insertElem = insertElem-1;
-        }
-    }
-    return;
-}
-
 void scheduler(ctx_t* ctx) {
-    /*if(timeforProcRemaining > 0) {
+    if(timeforProcRemaining > 0) {
         timeforProcRemaining = timeforProcRemaining-1;
+        PL011_putc(UART0, 'X', true);
         return;
-    }*/
+    }
     int pos = getCurrentProcPosition();
     if(pos == finalElem) {
         setNextProc(ctx, pos, 0);
@@ -108,7 +89,6 @@ void hilevel_handler_rst(ctx_t* ctx) {
     pcb[0].ctx.pc = (uint32_t)(&main_console);
     pcb[0].ctx.sp = (uint32_t)(&tos_console);
     timeforProcRemaining = 1;
-    priorityTable[0] = 0;
     /* Once the PCBs are initialised, we (arbitrarily) select one to be
     * restored (i.e., executed) when the function then returns.
     */
@@ -177,16 +157,17 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
             pcb[childSlot].ctx.sp = (uint32_t)(&tos_processSpace) + (1000*(childSlot+1));
             pcb[childSlot].priority = (uint32_t) ctx->gpr[0];
 
-            priorityTable[finalElem] = finalElem;
+            int temp = ctx->gpr[0];
+            PL011_putc(UART0,temp+'0', true);
+
             //return value of 0 for child
-            sortPriorityTable();
-            ctx->gpr[0] = 0;
-            pcb[childSlot].ctx.gpr[0] = childSlot+1;
+
+            ctx->gpr[0] = childSlot+1;
+            pcb[childSlot].ctx.gpr[0] = 0;
             break;
         }
         case 0x04 : {                   //exit
             current->priority = 0;
-            sortPriorityTable();
             finalElem = finalElem -1;
             break;
         }
