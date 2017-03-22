@@ -15,7 +15,8 @@ int is_prime( uint32_t x ) {
 }
 
 void main_P3() {
-    while(1) {
+    int x = 100;
+    while(x > 0) {
         write( STDOUT_FILENO, "P3", 2 );
 
         uint32_t lo = 1 <<  8;
@@ -24,6 +25,7 @@ void main_P3() {
         for( uint32_t x = lo; x < hi; x++ ) {
             int r = is_prime( x );
         }
+    x--;
     }
     exit( EXIT_SUCCESS );
 }

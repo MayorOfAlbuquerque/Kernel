@@ -48,7 +48,11 @@ void scheduler(ctx_t* ctx) {
         setNextProc(ctx, pos, 0);
     }
     else {
-        setNextProc(ctx, pos, pos+1);
+        int x =1;
+        while(pcb[pos+x].priority == 0) {
+            x = x+1;
+        }
+        setNextProc(ctx, pos, pos+x);
     }
     return;
 }
@@ -85,9 +89,9 @@ void hilevel_handler_rst(ctx_t* ctx) {
     memset(&pcb[0], 0, sizeof(pcb_t));
     pcb[0].pid = 1;
     pcb[0].ctx.cpsr = 0x50;
-    pcb[0].priority = 4;
+    pcb[0].priority = 1;
     pcb[0].ctx.pc = (uint32_t)(&main_console);
-    pcb[0].ctx.sp = (uint32_t)(&tos_console);
+    pcb[0].ctx.sp = (uint32_t)(&tos_processSpace);
     timeforProcRemaining = 1;
     /* Once the PCBs are initialised, we (arbitrarily) select one to be
     * restored (i.e., executed) when the function then returns.
@@ -149,20 +153,16 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
             int childSlot = finalElem+1;
             finalElem = childSlot;
             memset(&pcb[childSlot], 0, sizeof(pcb_t));
-            memcpy(&pcb[childSlot], &current->ctx, sizeof(ctx_t));
+            memcpy(&pcb[childSlot].ctx, ctx, sizeof(ctx_t));
 
-            pcb[childSlot].pid = finalElem+1;
+            pcb[childSlot].pid = childSlot+1;
             pcb[childSlot].ctx.cpsr = 0x50;
-            pcb[childSlot].ctx.pc = (uint32_t)(&main_console);
-            pcb[childSlot].ctx.sp = (uint32_t)(&tos_processSpace) + (1000*(childSlot+1));
+            pcb[childSlot].ctx.pc = ctx->pc;
+            pcb[childSlot].ctx.sp = (uint32_t)(&tos_processSpace) - (1000*(childSlot+1)) -((uint32_t)(ctx->sp)-(uint32_t)(&tos_processSpace));
             pcb[childSlot].priority = (uint32_t) ctx->gpr[0];
 
-            int temp = ctx->gpr[0];
-            PL011_putc(UART0,temp+'0', true);
-
             //return value of 0 for child
-
-            ctx->gpr[0] = childSlot+1;
+            ctx->gpr[0] = pcb[childSlot].pid;
             pcb[childSlot].ctx.gpr[0] = 0;
             break;
         }

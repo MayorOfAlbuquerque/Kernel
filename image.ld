@@ -24,10 +24,10 @@ SECTIONS {
     /* allocate stack for P5           */
     .       = . + 0x00001000;
     tos_P5  = .;
-    /* allocate stack for console           */
+    /* allocate stack for console      */
     .       = . + 0x00001000;
     tos_console  = .;
-    /* allocate stack for all the PPPPPPPPPssssss           */
+    /* allocate stack for all the PPPPPPPPPssssss */
     .       = . + 0x00010000;
     tos_processSpace  = .;
     }

@@ -11,7 +11,7 @@
  QEMU_UART        = stdio
  QEMU_UART       += telnet:127.0.0.1:1235,server
 #QEMU_UART       += telnet:127.0.0.1:1236,server
- QEMU_DISPLAY     = -nographic -display none
+ QEMU_DISPLAY     = -display none
 #QEMU_DISPLAY     =            -display  sdl
 
  LINARO_PATH      = /usr/local/gcc-linaro-5.1-2015.08-x86_64_arm-eabi
@@ -36,7 +36,7 @@
 build       : ${PROJECT_TARGETS}
 
 launch-qemu : ${PROJECT_TARGETS}
-	@${QEMU_PATH}/bin/qemu-system-arm -M realview-pb-a8 -m 128M ${QEMU_DISPLAY} -gdb tcp:${QEMU_GDB} $(addprefix -serial , ${QEMU_UART}) -S -kernel $(filter %.bin, ${PROJECT_TARGETS})
+	${QEMU_PATH}/bin/qemu-system-arm -M realview-pb-a8 -m 128M ${QEMU_DISPLAY} -gdb tcp:${QEMU_GDB} $(addprefix -serial , ${QEMU_UART}) -S -kernel $(filter %.bin, ${PROJECT_TARGETS})
 
 launch-gdb  : ${PROJECT_TARGETS}
 	@${LINARO_PATH}/bin/${LINARO_PREFIX}-gdb -ex "file $(filter %.elf, ${PROJECT_TARGETS})" -ex "target remote ${QEMU_GDB}"
