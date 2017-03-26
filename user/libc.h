@@ -50,10 +50,10 @@ extern void itoa( char* r, int x );
 // cooperatively yield control of processor, i.e., invoke the scheduler
 extern void yield();
 
-// write n bytes from x to   the file descriptor fd; return bytes written
+// write n bytes from x to the file descriptor fd; return bytes written
 extern int write( int fd, const void* x, size_t n );
-// read  n bytes into x from the file descriptor fd; return bytes read
-extern int  read( int fd,       void* x, size_t n );
+// read n bytes into x from the file descriptor fd; return bytes read
+extern int  read( int fd, void* x, size_t n );
 
 // perform fork, returning 0 iff. child or > 0 iff. parent process
 extern int  fork(int x);

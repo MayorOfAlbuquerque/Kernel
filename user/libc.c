@@ -69,7 +69,7 @@ int write( int fd, const void* x, size_t n ) {
   return r;
 }
 
-int  read( int fd,       void* x, size_t n ) {
+int read( int fd, void* x, size_t n ) {
   int r;
 
   asm volatile( "mov r0, %2 \n" // assign r0 = fd
@@ -85,8 +85,8 @@ int  read( int fd,       void* x, size_t n ) {
 }
 
 int fork(int x) {
-  int r;
-  asm volatile( "mov r0, %2 \n"
+    int r;
+    asm volatile( "mov r0, %2 \n"
                 "svc %1     \n" // make system call SYS_FORK
                 "mov %0, r0 \n" // assign r  = r0
               : "=r" (r)
@@ -97,7 +97,7 @@ int fork(int x) {
 }
 
 void exit( int x ) {
-  asm volatile( "mov r0, %1 \n" // assign r0 =  x
+    asm volatile( "mov r0, %1 \n" // assign r0 =  x
                 "svc %0     \n" // make system call SYS_EXIT
               :
               : "I" (SYS_EXIT), "r" (x)

@@ -37,6 +37,15 @@ int getCurrentProcPosition() {
     return -1;
 }
 
+int getNextSlot() {
+    for(int i = 0; i < maxNumOfProcs; i++) {
+        if(pcb[i].priority == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 void scheduler(ctx_t* ctx) {
     if(timeforProcRemaining > 0) {
         timeforProcRemaining = timeforProcRemaining-1;
@@ -57,6 +66,8 @@ void scheduler(ctx_t* ctx) {
     return;
 }
 
+extern void     receiverMain();
+extern void     senderMain();
 extern void     main_P3();
 extern uint32_t tos_P3;
 extern void     main_P4();
@@ -135,7 +146,7 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
             scheduler(ctx);
             break;
         }
-        case 0x01 : { // 0x01 => write( fd, x, n )
+        case 0x01 : {                   //write( fd, x, n )
             int fd = (int)(ctx->gpr[0]);
             char* x = (char*)(ctx->gpr[1]);
             int n = (int)(ctx->gpr[2]);
@@ -147,10 +158,15 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
             ctx->gpr[0] = n;
             break;
         }
+        case 0x02 : {                   //read
+
+        }
         case 0x03 : {                   //fork
             //create child with unique Pid
             //copy of parent address space and resources
-            int childSlot = finalElem+1;
+
+
+            int childSlot = getNextSlot();
             finalElem = childSlot;
             memset(&pcb[childSlot], 0, sizeof(pcb_t));
             memcpy(&pcb[childSlot].ctx, ctx, sizeof(ctx_t));
@@ -168,12 +184,13 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
         }
         case 0x04 : {                   //exit
             current->priority = 0;
+            scheduler(ctx);
             finalElem = finalElem -1;
             break;
         }
         case 0x05 : {                   //exec
-            int procToExec = (uint32_t) ctx->gpr[0];
-            ctx->pc = (uint32_t) procToExec;
+            ctx->pc = (uint32_t) ctx->gpr[0];
+            
             break;
         }
         default : { // 0x?? => unknown/unsupported
