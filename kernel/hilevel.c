@@ -15,6 +15,7 @@
 pcb_t pcb[maxNumOfProcs];
 pcb_t *current = NULL;
 int finalElem = 0, timeforProcRemaining = 0;
+char *fdTable[100];
 
 void setNextProc(ctx_t* ctx, int currentX, int next) {
     if(currentX == next) { // if it's the same, doesn't need a context switch
@@ -142,7 +143,7 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
    * - write any return value back to preserved usr mode registers.
    */
     switch(id) {
-        case 0x00 : { // 0x00 => yield()
+        case 0x00 : {                    // 0x00 => yield()
             scheduler(ctx);
             break;
         }
@@ -150,22 +151,31 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
             int fd = (int)(ctx->gpr[0]);
             char* x = (char*)(ctx->gpr[1]);
             int n = (int)(ctx->gpr[2]);
-
-            for(int i=0; i < n; i++) {
-                PL011_putc(UART0, *x++, true);
+            if(fd == 1) {
+                for(int i=0; i < n; i++) {
+                    PL011_putc(UART0, *x++, true);
+                }
             }
-
+            else {
+                for(int i=0; i < n; i++) {
+                    fdTable[fd][i] = *x++;
+                }
+            }
+            /*for(int i=0; i < n; i++) {
+                PL011_putc(UART0, fdTable[fd][i], true);
+            }*/
             ctx->gpr[0] = n;
             break;
         }
         case 0x02 : {                   //read
 
+            //for loop data up to size of buffer
+            //place in register
+
         }
         case 0x03 : {                   //fork
             //create child with unique Pid
             //copy of parent address space and resources
-
-
             int childSlot = getNextSlot();
             finalElem = childSlot;
             memset(&pcb[childSlot], 0, sizeof(pcb_t));
@@ -190,7 +200,12 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
         }
         case 0x05 : {                   //exec
             ctx->pc = (uint32_t) ctx->gpr[0];
-            
+            break;
+        }
+        case 0x07 : {
+            PL011_putc(UART0, 'P', true);
+            ctx->gpr[0] = 3;
+            ctx->gpr[1] = 4;
             break;
         }
         default : { // 0x?? => unknown/unsupported

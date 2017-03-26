@@ -30,7 +30,7 @@ typedef int pid_t;
 #define SYS_EXIT      (0x04)
 #define SYS_EXEC      (0x05)
 #define SYS_KILL      (0x06)
-
+#define SYS_PIPE      (0x07)
 
 #define SIG_TERM      (0x00)
 #define SIG_QUIT      (0x01)
@@ -57,6 +57,8 @@ extern int  read( int fd, void* x, size_t n );
 
 // perform fork, returning 0 iff. child or > 0 iff. parent process
 extern int  fork(int x);
+
+void pipe();
 // perform exit, i.e., terminate process with status x
 extern void exit(int x);
 // perform exec, i.e., start executing program at address x
