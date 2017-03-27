@@ -61,23 +61,26 @@ void* load( char* x ) {
 void main_console() {
   char* p, r, x[ 1024 ];
 
-  while( 1 ) {
+  while(1) {
     puts( "shell$ ", 7 );
     gets( x, 1024 );
     p = strtok(x, " ");
     if( 0 == strcmp( p, "fork")) {
         void* addr = load(strtok(NULL, " "));
-        char* pr = strtok(NULL, " ");
-        pid_t pid;
-        if(pr == NULL) {
-            pid = fork(1);                      //Load fork with priority 1
+        if(addr != NULL) {
+            char* pr = strtok(NULL, " ");
+            pid_t pid;
+            if(pr == NULL) {
+                pid = fork(1);                      //Load fork with priority 1
+            }
+            else {
+                pid = fork(atoi(pr));               //Load fork with priority from terminal
+            }
+            if(0 == pid) {
+                exec(addr);
+            }
         }
-        else {
-            pid = fork(atoi(pr));               //Load fork with priority from terminal
-        }
-        if(0 == pid) {
-            exec(addr);
-        }
+
     }
     else if( 0 == strcmp( p, "kill" )) {
         pid_t pid = atoi( strtok( NULL, " " ) );

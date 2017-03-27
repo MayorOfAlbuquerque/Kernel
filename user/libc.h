@@ -58,7 +58,7 @@ extern int  read( int fd, void* x, size_t n );
 // perform fork, returning 0 iff. child or > 0 iff. parent process
 extern int  fork(int x);
 
-void pipe();
+void pipe(int x[2]);
 // perform exit, i.e., terminate process with status x
 extern void exit(int x);
 // perform exec, i.e., start executing program at address x

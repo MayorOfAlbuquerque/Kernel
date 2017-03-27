@@ -99,8 +99,8 @@ int fork(int x) {
 void pipe(int x[2]) {
     asm volatile(
         "svc %2     \n" // make system call SYS_PIPE
-        "mov %0, r0 \n" // assign r  = r0
-        "mov %1, r1 \n" // assign r  = r0
+        "mov %0, r0 \n" // assign x[0]  = r0
+        "mov %1, r1 \n" // assign x[1]  = r1
         : "=r" (x[0]), "=r" (x[1])
         : "I" (SYS_PIPE)
         : "r0", "r1");

@@ -39,12 +39,16 @@ typedef struct {
     ctx_t ctx;
     int priority;
 } pcb_t;
-/*
-typedef struct {
-    char *message;
 
-} pipe;
-*/
+typedef struct {
+    int writable;
+    char *data;
+} kPipe;
+
+typedef struct {
+    int inUse;   
+    kPipe *pipe; 
+} file;
 
 
 

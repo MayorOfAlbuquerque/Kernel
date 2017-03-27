@@ -15,7 +15,23 @@
 pcb_t pcb[maxNumOfProcs];
 pcb_t *current = NULL;
 int finalElem = 0, timeforProcRemaining = 0;
-char *fdTable[100];
+file fdTable[maxNumOfProcs];
+
+int findFDElem() {
+    for(int i = 3; i < maxNumOfProcs; i++) {
+        if(fdTable[i].inUse == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+void assignPipe(kPipe p) {
+    int x = findFDElem();
+    memset(&fdTable[x], 0, sizeof(file));
+    fdTable[x].inUse = 1;
+    fdTable[x].pipe = &p;
+}
 
 void setNextProc(ctx_t* ctx, int currentX, int next) {
     if(currentX == next) { // if it's the same, doesn't need a context switch
@@ -48,7 +64,7 @@ int getNextSlot() {
 }
 
 void scheduler(ctx_t* ctx) {
-    if(timeforProcRemaining > 0) {
+    if(timeforProcRemaining > 1) {
         timeforProcRemaining = timeforProcRemaining-1;
         PL011_putc(UART0, 'X', true);
         return;
@@ -156,14 +172,9 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
                     PL011_putc(UART0, *x++, true);
                 }
             }
-            else {
-                for(int i=0; i < n; i++) {
-                    fdTable[fd][i] = *x++;
-                }
-            }
-            /*for(int i=0; i < n; i++) {
-                PL011_putc(UART0, fdTable[fd][i], true);
-            }*/
+            //write to pipe
+
+
             ctx->gpr[0] = n;
             break;
         }
@@ -194,6 +205,7 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
         }
         case 0x04 : {                   //exit
             current->priority = 0;
+            timeforProcRemaining = 0;
             scheduler(ctx);
             finalElem = finalElem -1;
             break;
@@ -202,10 +214,22 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
             ctx->pc = (uint32_t) ctx->gpr[0];
             break;
         }
-        case 0x07 : {
+        case 0x07 : {                   //Pipe
             PL011_putc(UART0, 'P', true);
-            ctx->gpr[0] = 3;
-            ctx->gpr[1] = 4;
+
+            //create pipe structure
+
+            kPipe p;
+            p.writable = 1;
+            p.data = "asd";
+
+            //find empty elem in fdTable
+            //and assign pointer to pipe
+            assignPipe(p);
+            assignPipe(p);
+
+            ctx->gpr[0] = x;
+
             break;
         }
         default : { // 0x?? => unknown/unsupported
