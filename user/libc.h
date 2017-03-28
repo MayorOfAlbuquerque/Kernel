@@ -43,7 +43,7 @@ typedef int pid_t;
 #define STDERR_FILENO (2)
 
 // convert ASCII string x into integer r
-extern int  atoi( char* x        );
+extern int atoi( char* x );
 // convert integer x into ASCII string r
 extern void itoa( char* r, int x );
 
@@ -53,10 +53,10 @@ extern void yield();
 // write n bytes from x to the file descriptor fd; return bytes written
 extern int write( int fd, const void* x, size_t n );
 // read n bytes into x from the file descriptor fd; return bytes read
-extern int  read( int fd, void* x, size_t n );
+extern int read( int fd, void* x, int n );
 
 // perform fork, returning 0 iff. child or > 0 iff. parent process
-extern int  fork(int x);
+extern int fork(int x);
 
 void pipe(int x[2]);
 // perform exit, i.e., terminate process with status x
@@ -66,6 +66,6 @@ extern void exec( const void* x );
 // perform prior, i.e., set priority of a process
 extern void prior( const void* x );
 // signal process identified by pid with signal x
-extern int  kill( pid_t pid, int x );
+extern int kill( pid_t pid, int x );
 
 #endif

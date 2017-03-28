@@ -28,6 +28,7 @@ void gets( char* x, int n ) {
  * into the kernel image, it returns a pointer to the entry point.
  */
 
+extern void receiverMain();
 extern void senderMain();
 extern void main_P3();
 extern void main_P4();
@@ -45,6 +46,9 @@ void* load( char* x ) {
     }
     else if( 0 == strcmp( x, "sender" ) ) {
         return &senderMain;
+    }
+    else if( 0 == strcmp( x, "receiver" ) ) {
+        return &receiverMain;
     }
 
     return NULL;

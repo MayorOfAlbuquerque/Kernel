@@ -26,11 +26,12 @@ int findFDElem() {
     return -1;
 }
 
-void assignPipe(kPipe p) {
+int assignPipe(kPipe p) {
     int x = findFDElem();
     memset(&fdTable[x], 0, sizeof(file));
     fdTable[x].inUse = 1;
     fdTable[x].pipe = &p;
+    return x;
 }
 
 void setNextProc(ctx_t* ctx, int currentX, int next) {
@@ -120,6 +121,7 @@ void hilevel_handler_rst(ctx_t* ctx) {
     pcb[0].priority = 1;
     pcb[0].ctx.pc = (uint32_t)(&main_console);
     pcb[0].ctx.sp = (uint32_t)(&tos_processSpace);
+    pcb[0].tos = (uint32_t)(&tos_processSpace);
     timeforProcRemaining = 1;
     /* Once the PCBs are initialised, we (arbitrarily) select one to be
     * restored (i.e., executed) when the function then returns.
@@ -172,17 +174,49 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
                     PL011_putc(UART0, *x++, true);
                 }
             }
+            else if(fd == 2) {
+                char *str = "STDERR On write of string: ";
+                for(int i=0; i < 27; i++) {
+                    PL011_putc(UART0, *str++, true);
+                }
+                for(int i=0; i < n; i++) {
+                    PL011_putc(UART0, *x++, true);
+                }
+            }
             //write to pipe
-
-
+            else {
+                memcpy(&fdTable[fd].pipe->data, &x, n);
+                memcpy(&fdTable[fd].pipe->size, &n, sizeof(int));
+                if(fdTable[fd].pipe->size == 6) {
+                    PL011_putc(UART0, 'Z', true);
+                }
+                PL011_putc(UART0, 'T', true);
+            }
             ctx->gpr[0] = n;
             break;
         }
         case 0x02 : {                   //read
 
             //for loop data up to size of buffer
+            int fd = (int)(ctx->gpr[0]);
+            int n;
+            memcpy(&n, &fdTable[fd].pipe->size, sizeof(int));
+            if(1879116160 == n) {
+                PL011_putc(UART0, n+'0', true);
+                PL011_putc(UART0, 'L', true);
+            }
+            if(ctx->gpr[2] == 6) {
+                PL011_putc(UART0, 'K', true);
+            }
+            if(fdTable[fd].pipe->size > (int)(ctx->gpr[2])){
+                char *str = "STDERR data greater than read buffer";
+                for(int i=0; i < 36; i++) {
+                    PL011_putc(UART0, *str++, true);
+                }
+            }
             //place in register
-
+            memcpy(&ctx->gpr[0], fdTable[fd].pipe->data, (int)(ctx->gpr[2]));
+            break;
         }
         case 0x03 : {                   //fork
             //create child with unique Pid
@@ -192,6 +226,9 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
             memset(&pcb[childSlot], 0, sizeof(pcb_t));
             memcpy(&pcb[childSlot].ctx, ctx, sizeof(ctx_t));
 
+            uint32_t TOSS = (uint32_t)(&tos_processSpace) - (1000*(childSlot+1));
+            pcb[childSlot].tos = TOSS;
+            memcpy(&TOSS-1000, &current->tos, 0x00001000);
             pcb[childSlot].pid = childSlot+1;
             pcb[childSlot].ctx.cpsr = 0x50;
             pcb[childSlot].ctx.pc = ctx->pc;
@@ -211,6 +248,8 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
             break;
         }
         case 0x05 : {                   //exec
+
+            // TODO: memset proc to zero first
             ctx->pc = (uint32_t) ctx->gpr[0];
             break;
         }
@@ -221,15 +260,14 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
 
             kPipe p;
             p.writable = 1;
-            p.data = "asd";
 
             //find empty elem in fdTable
             //and assign pointer to pipe
-            assignPipe(p);
-            assignPipe(p);
+            int fd1 = assignPipe(p);
+            int fd2 = assignPipe(p);
 
-            ctx->gpr[0] = x;
-
+            ctx->gpr[0] = fd1;
+            ctx->gpr[1] = fd2;
             break;
         }
         default : { // 0x?? => unknown/unsupported

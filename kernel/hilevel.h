@@ -35,6 +35,7 @@ typedef struct {
 } ctx_t;
 
 typedef struct {
+    uint32_t tos;
     pid_t pid;
     ctx_t ctx;
     int priority;
@@ -42,12 +43,14 @@ typedef struct {
 
 typedef struct {
     int writable;
-    char *data;
+    int size;
+    char data[100];
 } kPipe;
 
 typedef struct {
-    int inUse;   
-    kPipe *pipe; 
+    int writeEnd;
+    int inUse;
+    kPipe *pipe;
 } file;
 
 
