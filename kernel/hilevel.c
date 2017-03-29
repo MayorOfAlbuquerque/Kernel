@@ -14,8 +14,9 @@
 //'current' is address of current process
 pcb_t pcb[maxNumOfProcs];
 pcb_t *current = NULL;
-int finalElem = 0, timeforProcRemaining = 0;
+int finalElem = 0, timeforProcRemaining = 0, newest;
 file fdTable[maxNumOfProcs];
+
 
 int findFDElem() {
     for(int i = 3; i < maxNumOfProcs; i++) {
@@ -196,7 +197,6 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
             break;
         }
         case 0x02 : {                   //read
-
             //for loop data up to size of buffer
             int fd = (int)(ctx->gpr[0]);
             int n;
@@ -222,19 +222,21 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
             //create child with unique Pid
             //copy of parent address space and resources
             int childSlot = getNextSlot();
-            finalElem = childSlot;
+            if(childSlot > finalElem) {
+                finalElem = childSlot;
+            }
             memset(&pcb[childSlot], 0, sizeof(pcb_t));
             memcpy(&pcb[childSlot].ctx, ctx, sizeof(ctx_t));
 
-            uint32_t TOSS = (uint32_t)(&tos_processSpace) - (1000*(childSlot+1));
+            uint32_t TOSS = (uint32_t)(&tos_processSpace) - (uint32_t)(0x00001000*(childSlot+1));
             pcb[childSlot].tos = TOSS;
-            memcpy(&TOSS-1000, &current->tos, 0x00001000);
+            memcpy(&TOSS-0x00001000, &current->tos-0x00001000, 0x00001000);
             pcb[childSlot].pid = childSlot+1;
             pcb[childSlot].ctx.cpsr = 0x50;
             pcb[childSlot].ctx.pc = ctx->pc;
-            pcb[childSlot].ctx.sp = (uint32_t)(&tos_processSpace) - (1000*(childSlot+1)) -((uint32_t)(ctx->sp)-(uint32_t)(&tos_processSpace));
+            pcb[childSlot].ctx.sp = (uint32_t)(&tos_processSpace) - (0x00001000*(childSlot+1)) -((uint32_t)(ctx->sp)-(uint32_t)(&tos_processSpace));
             pcb[childSlot].priority = (uint32_t) ctx->gpr[0];
-
+            newest = childSlot;
             //return value of 0 for child
             ctx->gpr[0] = pcb[childSlot].pid;
             pcb[childSlot].ctx.gpr[0] = 0;
@@ -243,13 +245,14 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
         case 0x04 : {                   //exit
             current->priority = 0;
             timeforProcRemaining = 0;
-            scheduler(ctx);
-            finalElem = finalElem -1;
+            if(getCurrentProcPosition() == finalElem) {
+                finalElem = finalElem -1;
+            }
+            //scheduler(ctx);
             break;
         }
         case 0x05 : {                   //exec
-
-            // TODO: memset proc to zero first
+            memset(&pcb[newest].tos-0x00001000, 0, 0x00001000);
             ctx->pc = (uint32_t) ctx->gpr[0];
             break;
         }
@@ -257,7 +260,6 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
             PL011_putc(UART0, 'P', true);
 
             //create pipe structure
-
             kPipe p;
             p.writable = 1;
 
