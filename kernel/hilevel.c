@@ -129,6 +129,7 @@ void hilevel_handler_rst(ctx_t* ctx) {
     */
     current = &pcb[0];
     finalElem = 0;
+    PL011_putc(UART0, 'X', true);
     memcpy(ctx, &current->ctx, sizeof(ctx_t));
     int_enable_irq();
 
@@ -170,11 +171,14 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
             int fd = (int)(ctx->gpr[0]);
             char* x = (char*)(ctx->gpr[1]);
             int n = (int)(ctx->gpr[2]);
+            //writing to stdout
             if(fd == 1) {
                 for(int i=0; i < n; i++) {
+                    //PL011_putc(UART0, 'U', true);
                     PL011_putc(UART0, *x++, true);
                 }
             }
+            //writing to stderr
             else if(fd == 2) {
                 char *str = "STDERR On write of string: ";
                 for(int i=0; i < 27; i++) {
@@ -184,15 +188,13 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
                     PL011_putc(UART0, *x++, true);
                 }
             }
+
             //write to pipe
             else {
-                memcpy(&fdTable[fd].pipe->data, &x, n);
+                memcpy(&fdTable[fd].pipe->data, &x, sizeof(x));
                 memcpy(&fdTable[fd].pipe->size, &n, sizeof(int));
-                if(fdTable[fd].pipe->size == 6) {
-                    PL011_putc(UART0, 'Z', true);
-                }
-                PL011_putc(UART0, 'T', true);
             }
+
             ctx->gpr[0] = n;
             break;
         }
@@ -201,13 +203,6 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
             int fd = (int)(ctx->gpr[0]);
             int n;
             memcpy(&n, &fdTable[fd].pipe->size, sizeof(int));
-            if(1879116160 == n) {
-                PL011_putc(UART0, n+'0', true);
-                PL011_putc(UART0, 'L', true);
-            }
-            if(ctx->gpr[2] == 6) {
-                PL011_putc(UART0, 'K', true);
-            }
             if(fdTable[fd].pipe->size > (int)(ctx->gpr[2])){
                 char *str = "STDERR data greater than read buffer";
                 for(int i=0; i < 36; i++) {
@@ -215,7 +210,15 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
                 }
             }
             //place in register
-            memcpy(&ctx->gpr[0], fdTable[fd].pipe->data, (int)(ctx->gpr[2]));
+            else {
+                for(int i=0; i < n; i++) {
+                    PL011_putc(UART0, *fdTable[fd].pipe->data++, true);
+                }
+                //ctx->gpr[1] = fdTable[fd].pipe->data;
+                memcpy(&ctx->gpr[1], &fdTable[fd].pipe->data, (int)(ctx->gpr[2])*sizeof(char));
+
+                ctx->gpr[0] = 0;
+            }
             break;
         }
         case 0x03 : {                   //fork
@@ -228,13 +231,13 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
             memset(&pcb[childSlot], 0, sizeof(pcb_t));
             memcpy(&pcb[childSlot].ctx, ctx, sizeof(ctx_t));
 
-            uint32_t TOSS = (uint32_t)(&tos_processSpace) - (uint32_t)(0x00001000*(childSlot+1));
+            uint32_t TOSS = (uint32_t)(&tos_processSpace) - (uint32_t)(0x00001000*(childSlot));
             pcb[childSlot].tos = TOSS;
             memcpy(&TOSS-0x00001000, &current->tos-0x00001000, 0x00001000);
             pcb[childSlot].pid = childSlot+1;
             pcb[childSlot].ctx.cpsr = 0x50;
             pcb[childSlot].ctx.pc = ctx->pc;
-            pcb[childSlot].ctx.sp = (uint32_t)(&tos_processSpace) - (0x00001000*(childSlot+1)) -((uint32_t)(ctx->sp)-(uint32_t)(&tos_processSpace));
+            pcb[childSlot].ctx.sp = (uint32_t)(&tos_processSpace) - ((0x00001000*(childSlot)) +((uint32_t)(ctx->sp)-(uint32_t)(&tos_processSpace)));
             pcb[childSlot].priority = (uint32_t) ctx->gpr[0];
             newest = childSlot;
             //return value of 0 for child
@@ -248,11 +251,12 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
             if(getCurrentProcPosition() == finalElem) {
                 finalElem = finalElem -1;
             }
-            //scheduler(ctx);
+            scheduler(ctx);
             break;
         }
         case 0x05 : {                   //exec
             memset(&pcb[newest].tos-0x00001000, 0, 0x00001000);
+            pcb[newest].ctx.sp = pcb[newest].tos;
             ctx->pc = (uint32_t) ctx->gpr[0];
             break;
         }
@@ -261,13 +265,17 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
 
             //create pipe structure
             kPipe p;
+            memset(&p, 0, sizeof(kPipe));
             p.writable = 1;
 
             //find empty elem in fdTable
             //and assign pointer to pipe
             int fd1 = assignPipe(p);
+            fdTable[fd1].writeEnd = 0;
             int fd2 = assignPipe(p);
+            fdTable[fd2].writeEnd = 1;
 
+            //return pipe locations, 1 is read, 2 is write
             ctx->gpr[0] = fd1;
             ctx->gpr[1] = fd2;
             break;

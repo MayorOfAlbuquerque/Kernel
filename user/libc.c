@@ -76,6 +76,7 @@ int read( int fd, void* x, int n ) {
                 "mov r2, %5 \n" // assign r2 =  n
                 "svc %2     \n" // make system call SYS_READ
                 "mov %0, r0 \n" // assign r  = r0
+                "mov %1, r1 \n"
               : "=r" (r), "=r" (x)
               : "I" (SYS_READ),  "r" (fd), "r" (x), "r" (n)
               : "r0", "r1", "r2" );

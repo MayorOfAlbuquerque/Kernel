@@ -5,24 +5,39 @@
 
 extern void receiverMain();
 
+void writeOut(char *str) {
+    int s = sizeof(str)/sizeof(char);
+    write(1, str, s);
+}
+
+
+
 void senderMain() {
-    write( STDOUT_FILENO, "GL", 2 );
+    char *buffer;
     int fd[2];
     //make pipe
     pipe(fd);
-    //make pipe
-    write(fd[0], "We did\n", 6);
     //fork child
-/*
-    pid_t childId = fork(1);
+
+    //pid_t childId = fork(1);
     void *addr = &receiverMain;
-    if(0 == childId) {
-        exec(addr);
+    write(fd[0], "test\n", 4);
+    read(fd[0], buffer, sizeof(buffer));
+    writeOut(buffer);
+
+
+    
+    /*if(0 == childId) {
+        read(fd[0], buffer, sizeof(buffer));
+        write(1, buffer, 10);
+    }
+    else {
+        write(fd[0], "test\n", 4);
     }*/
     //child & parent both use pipe
 
 
-    exit( EXIT_SUCCESS );
+    exit(EXIT_SUCCESS);
 }
 
 //http://tldp.org/LDP/lpg/node11.html
