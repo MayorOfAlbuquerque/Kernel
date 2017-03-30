@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include "libc.h"
 
-
+/*
 void forking(int depth, int *fdArray1[2], int *fdArray2[2], int *fdArray3[2], int *fdArray4[2]) {
     depth = depth -1;
     if(depth > 0) {
@@ -39,7 +39,7 @@ void main(int argc, char const *argv[])
     int *FD4[2];
     char *buffer;
     int depth = 4;
-    //make pipe 
+    //make pipe
 
 
     forking(depth);
@@ -48,6 +48,6 @@ void main(int argc, char const *argv[])
     }
 
 
-    
+
     return 0;
-}
+}*/

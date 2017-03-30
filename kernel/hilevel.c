@@ -14,7 +14,7 @@
 //'current' is address of current process
 pcb_t pcb[maxNumOfProcs];
 pcb_t *current = NULL;
-int finalElem = 0, timeforProcRemaining = 0, newest;
+int finalElem = 0, timeforProcRemaining = 0, newest, hasBeenReset = 0;
 file fdTable[maxNumOfProcs];
 
 
@@ -48,7 +48,7 @@ void setNextProc(ctx_t* ctx, int currentX, int next) {
 }
 
 int getCurrentProcPosition() {
-    for(int i = 0; i <= finalElem; i++) {
+    for(int i = 0; i <= maxNumOfProcs; i++) {
         if (current == &pcb[i]) {
             return i;
         }
@@ -68,20 +68,20 @@ int getNextSlot() {
 void scheduler(ctx_t* ctx) {
     if(timeforProcRemaining > 1) {
         timeforProcRemaining = timeforProcRemaining-1;
-        PL011_putc(UART0, 'X', true);
         return;
     }
     int pos = getCurrentProcPosition();
-    if(pos == finalElem) {
+    int x = 1;
+    while(pcb[pos+x].priority == 0 && pos+x < maxNumOfProcs) {
+
+        x = x+1;
+    }
+    if((pos+x) == maxNumOfProcs) {
         setNextProc(ctx, pos, 0);
+        return;
     }
-    else {
-        int x =1;
-        while(pcb[pos+x].priority == 0) {
-            x = x+1;
-        }
-        setNextProc(ctx, pos, pos+x);
-    }
+    setNextProc(ctx, pos, pos+x);
+
     return;
 }
 
@@ -105,6 +105,7 @@ void hilevel_handler_rst(ctx_t* ctx) {
    *   mode, with IRQ interrupts enabled, and
    * - the PC and SP values matche the entry point and top of stack.
    */
+
    TIMER0->Timer1Load  = 0x00100000; // select period = 2^20 ticks ~= 1 sec
    TIMER0->Timer1Ctrl  = 0x00000002; // select 32-bit timer
    TIMER0->Timer1Ctrl |= 0x00000040; // select periodic timer
@@ -128,11 +129,11 @@ void hilevel_handler_rst(ctx_t* ctx) {
     * restored (i.e., executed) when the function then returns.
     */
     current = &pcb[0];
-    finalElem = 0;
     PL011_putc(UART0, 'X', true);
+    finalElem = 0;
     memcpy(ctx, &current->ctx, sizeof(ctx_t));
     int_enable_irq();
-
+    hasBeenReset = 1;
     return;
 }
 
@@ -191,7 +192,7 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
 
             //write to pipe
             else {
-                memcpy(&fdTable[fd].pipe->data, &x, sizeof(x));
+                memcpy((char*)fdTable[fd].pipe->data, x, n);
                 memcpy(&fdTable[fd].pipe->size, &n, sizeof(int));
             }
 
@@ -211,12 +212,7 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
             }
             //place in register
             else {
-                for(int i=0; i < n; i++) {
-                    PL011_putc(UART0, *fdTable[fd].pipe->data++, true);
-                }
-                //ctx->gpr[1] = fdTable[fd].pipe->data;
-                memcpy(&ctx->gpr[1], &fdTable[fd].pipe->data, (int)(ctx->gpr[2])*sizeof(char));
-
+                memcpy((char*)ctx->gpr[1], fdTable[fd].pipe->data, (int)(ctx->gpr[2]));
                 ctx->gpr[0] = 0;
             }
             break;
@@ -248,9 +244,6 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
         case 0x04 : {                   //exit
             current->priority = 0;
             timeforProcRemaining = 0;
-            if(getCurrentProcPosition() == finalElem) {
-                finalElem = finalElem -1;
-            }
             scheduler(ctx);
             break;
         }

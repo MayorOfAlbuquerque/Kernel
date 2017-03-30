@@ -13,27 +13,30 @@ void writeOut(char *str) {
 
 
 void senderMain() {
-    char *buffer;
+    char buffer[5];
     int fd[2];
     //make pipe
     pipe(fd);
     //fork child
 
-    //pid_t childId = fork(1);
-    void *addr = &receiverMain;
-    write(fd[0], "test\n", 4);
-    read(fd[0], buffer, sizeof(buffer));
-    writeOut(buffer);
+    pid_t childId = fork(1);
 
-
-    
-    /*if(0 == childId) {
-        read(fd[0], buffer, sizeof(buffer));
-        write(1, buffer, 10);
+    if(childId == 0) {
+        writeOut("gg");
+        //read(fd[0], buffer, sizeof(buffer));
     }
     else {
-        write(fd[0], "test\n", 4);
-    }*/
+        writeOut("ff");
+
+        //problem
+        write(fd[0], "test\n", 5);
+    }
+    //write(fd[0], "test\n", 5);
+    //read(fd[0], buffer, 5);
+    writeOut("asd");
+    writeOut("fgh");
+    //writeOut(buffer);
+
     //child & parent both use pipe
 
 
