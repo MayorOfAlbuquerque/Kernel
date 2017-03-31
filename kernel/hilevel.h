@@ -44,7 +44,7 @@ typedef struct {
 typedef struct {
     int writable;
     int size;
-    char *data;
+    char data[10];
 } kPipe;
 
 typedef struct {

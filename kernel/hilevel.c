@@ -16,7 +16,8 @@ pcb_t pcb[maxNumOfProcs];
 pcb_t *current = NULL;
 int finalElem = 0, timeforProcRemaining = 0, newest, hasBeenReset = 0;
 file fdTable[maxNumOfProcs];
-
+kPipe pipeList[10];
+int lastPipe =0;
 
 int findFDElem() {
     for(int i = 3; i < maxNumOfProcs; i++) {
@@ -27,11 +28,11 @@ int findFDElem() {
     return -1;
 }
 
-int assignPipe(kPipe p) {
+int assignPipe(kPipe *p) {
     int x = findFDElem();
     memset(&fdTable[x], 0, sizeof(file));
     fdTable[x].inUse = 1;
-    fdTable[x].pipe = &p;
+    fdTable[x].pipe = p;
     return x;
 }
 
@@ -173,8 +174,6 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
             char* x = (char*)(ctx->gpr[1]);
             int n = (int)(ctx->gpr[2]);
             //writing to stdout
-            PL011_putc(UART0, '0'+fd, true);
-
             if(fd == 1) {
                 for(int i=0; i < n; i++) {
                     //PL011_putc(UART0, 'I', true);
@@ -191,12 +190,17 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
                     PL011_putc(UART0, *x++, true);
                 }
             }
+            else if(!fdTable[fd].writeEnd) {
+                char *str = "STDERR write on wrong end of pipe\n";
+                for(int i=0; i < 35; i++) {     
+                    PL011_putc(UART0, *str++, true);
+                }
+            }
 
             //write to pipe
             else {
-                PL011_putc(UART0, 'O', true);
                 memcpy((char*)fdTable[fd].pipe->data, x, n);
-                memcpy(&fdTable[fd].pipe->size, &n, sizeof(int));
+                fdTable[fd].pipe->size = n;
             }
 
             ctx->gpr[0] = n;
@@ -205,8 +209,8 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
         case 0x02 : {                   //read
             //for loop data up to size of buffer
             int fd = (int)(ctx->gpr[0]);
-            int n;
-            memcpy(&n, &fdTable[fd].pipe->size, sizeof(int));
+            int n = fdTable[fd].pipe->size;
+            
             if(fdTable[fd].pipe->size > (int)(ctx->gpr[2])){
                 char *str = "STDERR data greater than read buffer";
                 for(int i=0; i < 36; i++) {
@@ -214,10 +218,10 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
                 }
             }
             //place in register
-            else {
-                memcpy((char*)ctx->gpr[1], fdTable[fd].pipe->data, (int)(ctx->gpr[2]));
-                ctx->gpr[0] = 0;
-            }
+            
+            memcpy((char*)ctx->gpr[1], fdTable[fd].pipe->data, (int)(ctx->gpr[2]));
+            ctx->gpr[0] = 0;
+            
             break;
         }
         case 0x03 : {                   //fork
@@ -234,9 +238,9 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
             uint32_t TOSS = (uint32_t)(&tos_processSpace) - (uint32_t)(0x00001000*(childSlot));
             pcb[childSlot].tos = TOSS;
             //find sp offset for child
-            uint32_t spOffset = ((uint32_t)(current->tos)-(uint32_t)(current->ctx.sp));
+            uint32_t spOffset = ((uint32_t)(current->tos)-(uint32_t)(ctx->sp));
             //copy stack into child process space
-            memcpy(&TOSS-0x00001000, &current->tos-0x00001000, 0x00001000);
+            memcpy(TOSS-0x00001000, current->tos-0x00001000, 0x00001000);
 
             pcb[childSlot].pid = childSlot+1;
             pcb[childSlot].ctx.cpsr = 0x50;
@@ -266,17 +270,17 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
             PL011_putc(UART0, 'P', true);
 
             //create pipe structure
-            kPipe p;
-            memset(&p, 0, sizeof(kPipe));
-            p.writable = 1;
+
+            memset(&pipeList[lastPipe], 0, sizeof(kPipe));
+            pipeList[lastPipe].writable = 1;
 
             //find empty elem in fdTable
             //and assign pointer to pipe
-            int fd1 = assignPipe(p);
+            int fd1 = assignPipe(&pipeList[lastPipe]);
             fdTable[fd1].writeEnd = 0;
-            int fd2 = assignPipe(p);
+            int fd2 = assignPipe(&pipeList[lastPipe]);
             fdTable[fd2].writeEnd = 1;
-
+            lastPipe = lastPipe+1;
             //return pipe locations, 1 is read, 2 is write
             ctx->gpr[0] = fd1;
             ctx->gpr[1] = fd2;

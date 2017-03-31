@@ -71,12 +71,12 @@ int write( int fd, const void* x, size_t n ) {
 int read( int fd, void* x, int n ) {
   int r;
 
-  asm volatile( "mov r0, %3 \n" // assign r0 = fd
-                "mov r1, %4 \n" // assign r1 =  x
-                "mov r2, %5 \n" // assign r2 =  n
-                "svc %2     \n" // make system call SYS_READ
+  asm volatile( "mov r0, %2 \n" // assign r0 = fd
+                "mov r1, %3 \n" // assign r1 =  x
+                "mov r2, %4 \n" // assign r2 =  n
+                "svc %1     \n" // make system call SYS_READ
                 "mov %0, r0 \n" // assign r  = r0
-              : "=r" (r), "=r" (x)
+              : "=r" (r)
               : "I" (SYS_READ),  "r" (fd), "r" (x), "r" (n)
               : "r0", "r1", "r2" );
 
