@@ -173,15 +173,18 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
             char* x = (char*)(ctx->gpr[1]);
             int n = (int)(ctx->gpr[2]);
             //writing to stdout
+            PL011_putc(UART0, '0'+fd, true);
+
             if(fd == 1) {
-                for(int i=0; i < 10; i++) {
+                for(int i=0; i < n; i++) {
+                    //PL011_putc(UART0, 'I', true);
                     PL011_putc(UART0, *x++, true);
                 }
             }
             //writing to stderr
             else if(fd == 2) {
                 char *str = "STDERR On write of string: ";
-                for(int i=0; i < 27; i++) {
+                for(int i=0; i < 27; i++) {     
                     PL011_putc(UART0, *str++, true);
                 }
                 for(int i=0; i < n; i++) {
@@ -191,6 +194,7 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
 
             //write to pipe
             else {
+                PL011_putc(UART0, 'O', true);
                 memcpy((char*)fdTable[fd].pipe->data, x, n);
                 memcpy(&fdTable[fd].pipe->size, &n, sizeof(int));
             }
@@ -226,13 +230,18 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
             memset(&pcb[childSlot], 0, sizeof(pcb_t));
             memcpy(&pcb[childSlot].ctx, ctx, sizeof(ctx_t));
 
+            //give child tos
             uint32_t TOSS = (uint32_t)(&tos_processSpace) - (uint32_t)(0x00001000*(childSlot));
             pcb[childSlot].tos = TOSS;
+            //find sp offset for child
             uint32_t spOffset = ((uint32_t)(current->tos)-(uint32_t)(current->ctx.sp));
+            //copy stack into child process space
             memcpy(&TOSS-0x00001000, &current->tos-0x00001000, 0x00001000);
+
             pcb[childSlot].pid = childSlot+1;
             pcb[childSlot].ctx.cpsr = 0x50;
             pcb[childSlot].ctx.pc = ctx->pc;
+            //set child sp offset
             pcb[childSlot].ctx.sp = (uint32_t)(&tos_processSpace) - ((0x00001000*(childSlot))+spOffset);
             pcb[childSlot].priority = (uint32_t) ctx->gpr[0];
             newest = childSlot;

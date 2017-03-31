@@ -14,12 +14,12 @@ void senderMain() {
     pid_t childId = fork(1);
 
     if(childId == 0) {
-        write(1, "gg", 2);
+        write(1, "AA", 2);
         //read(fd[0], buffer, sizeof(buffer));
     }
     else {
         if(fd[0] == 3) {
-            write(1, "ff", 2);
+            write(1, "BB", 2);
 
             //problem
             write(fd[0], "test\n", 5);

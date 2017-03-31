@@ -33,10 +33,10 @@ void forking(int depth, int *fdArray1[2], int *fdArray2[2], int *fdArray3[2], in
 
 void main(int argc, char const *argv[])
 {
-    int *FD1[2];
-    int *FD2[2];
-    int *FD3[2];
-    int *FD4[2];
+    int FD1[2];
+    int FD2[2];
+    int FD3[2];
+    int FD4[2];
     char *buffer;
     int depth = 4;
     //make pipe
