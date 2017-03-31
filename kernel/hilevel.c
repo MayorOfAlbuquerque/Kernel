@@ -174,8 +174,7 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
             int n = (int)(ctx->gpr[2]);
             //writing to stdout
             if(fd == 1) {
-                for(int i=0; i < n; i++) {
-                    //PL011_putc(UART0, 'U', true);
+                for(int i=0; i < 10; i++) {
                     PL011_putc(UART0, *x++, true);
                 }
             }
@@ -229,11 +228,12 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
 
             uint32_t TOSS = (uint32_t)(&tos_processSpace) - (uint32_t)(0x00001000*(childSlot));
             pcb[childSlot].tos = TOSS;
+            uint32_t spOffset = ((uint32_t)(current->tos)-(uint32_t)(current->ctx.sp));
             memcpy(&TOSS-0x00001000, &current->tos-0x00001000, 0x00001000);
             pcb[childSlot].pid = childSlot+1;
             pcb[childSlot].ctx.cpsr = 0x50;
             pcb[childSlot].ctx.pc = ctx->pc;
-            pcb[childSlot].ctx.sp = (uint32_t)(&tos_processSpace) - ((0x00001000*(childSlot)) +((uint32_t)(ctx->sp)-(uint32_t)(&tos_processSpace)));
+            pcb[childSlot].ctx.sp = (uint32_t)(&tos_processSpace) - ((0x00001000*(childSlot))+spOffset);
             pcb[childSlot].priority = (uint32_t) ctx->gpr[0];
             newest = childSlot;
             //return value of 0 for child
