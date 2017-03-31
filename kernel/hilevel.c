@@ -176,7 +176,6 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
             //writing to stdout
             if(fd == 1) {
                 for(int i=0; i < n; i++) {
-                    //PL011_putc(UART0, 'I', true);
                     PL011_putc(UART0, *x++, true);
                 }
             }
@@ -198,11 +197,13 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
             }
 
             //write to pipe
-            else {
+            else if(fdTable[fd].pipe->writable) {
+                memset((char*)fdTable[fd].pipe->data, 0, sizeof(fdTable[fd].pipe->data));
                 memcpy((char*)fdTable[fd].pipe->data, x, n);
                 fdTable[fd].pipe->size = n;
+                fdTable[fd].pipe->writable = 0;
             }
-
+           
             ctx->gpr[0] = n;
             break;
         }
@@ -210,7 +211,11 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
             //for loop data up to size of buffer
             int fd = (int)(ctx->gpr[0]);
             int n = fdTable[fd].pipe->size;
-            
+            if(fdTable[fd].pipe->writable) {
+                ctx->gpr[0] = 1;
+                break;
+            }
+
             if(fdTable[fd].pipe->size > (int)(ctx->gpr[2])){
                 char *str = "STDERR data greater than read buffer";
                 for(int i=0; i < 36; i++) {
@@ -220,8 +225,8 @@ void hilevel_handler_svc(ctx_t* ctx, uint32_t id) {
             //place in register
             
             memcpy((char*)ctx->gpr[1], fdTable[fd].pipe->data, (int)(ctx->gpr[2]));
+            fdTable[fd].pipe->writable = 1;
             ctx->gpr[0] = 0;
-            
             break;
         }
         case 0x03 : {                   //fork

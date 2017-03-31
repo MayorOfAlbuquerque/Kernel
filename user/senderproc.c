@@ -6,28 +6,45 @@
 extern void receiverMain();
 
 
+
+
 void senderMain() {
-    char buffer[5];
-    int fd[2];
-    //make pipe
-    pipe(fd);
+    char buffer[10];
+    int fd1[2], fd2[2], fd3[2];
+    //make pipes
+    pipe(fd1);
+    pipe(fd2);
     //fork child
     pid_t childId = fork(1);
 
     if(childId == 0) {
-        write(1, "AA", 2);
-        read(fd[0], buffer, sizeof(buffer));
+
+        while(read(fd1[0], buffer, sizeof(buffer))) {
+            continue;
+        }
         write(1, buffer, sizeof(buffer));
+        write(fd2[1], "second\n", 7);
+
+        while(read(fd1[0], buffer, sizeof(buffer))) {
+            continue;
+        }
+        write(1, buffer, sizeof(buffer));
+        write(fd2[1], "fourth\n", 7);
     }
     else {
-        write(1, "BB", 2);
-        //problem
-        write(fd[1], "test\n", 5);
+        
+        write(fd1[1], "first\n", 6);
+        while(read(fd2[0], buffer, sizeof(buffer))) {
+            continue;
+        }
+        write(1, buffer, sizeof(buffer));
 
+        write(fd1[1], "third\n", 6);
+        while(read(fd2[0], buffer, sizeof(buffer))) {
+            continue;
+        }
+        write(1, buffer, sizeof(buffer));
     }
-    //child & parent both use pipe
 
     exit(EXIT_SUCCESS);
-}
-
-//http://tldp.org/LDP/lpg/node11.html
+}   
